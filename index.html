@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>synthviz!</title>
+    <style>
+      * {
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .controls {
+        position: absolute;
+        top: 0;
+        right: 0;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>synthviz requires javascript!</noscript>
+    <input id="file" type="file" accept="audio/*" style="margin: 0.75rem" />
+    <canvas id="canvas" hidden></canvas>
+    <div id="controls" class="controls" hidden>
+      <label
+        >Resolution:
+        <input
+          type="range"
+          id="control-resolution"
+          min="5"
+          max="11"
+          value="11"
+        />
+      </label>
+      <label
+        >Gap:
+        <input type="range" id="control-gap" min="0" max="100" value="5" />
+      </label>
+    </div>
+
+    <script>
+      document.body.onload = () => {
+        /** @type HTMLInputElement */
+        const input = document.getElementById("file");
+
+        /** @type HTMLCanvasElement */
+        const canvas = document.getElementById("canvas");
+        const canvasCtx = canvas.getContext("2d");
+
+        /** @type HTMLDivElement */
+        const controls = document.getElementById("controls");
+        /** @type HTMLInputElement */
+        const controlResolution = document.getElementById("control-resolution");
+        /** @type HTMLInputElement */
+        const controlGap = document.getElementById("control-gap");
+
+        const resize = () => {
+          canvas.height = window.innerHeight;
+          canvas.width = window.innerWidth;
+        };
+        window.onresize = resize;
+        resize();
+
+        input.oninput = (_) => {
+          input.hidden = true;
+          controls.hidden = false;
+
+          const audioCtx = new AudioContext();
+          const analyser = new AnalyserNode(audioCtx, {
+            fftSize: 2 ** controlResolution.value,
+          });
+
+          const file = input.files[0];
+          const audio = new Audio(URL.createObjectURL(file));
+          audio.play();
+
+          const source = audioCtx.createMediaElementSource(audio);
+          source.connect(analyser);
+          analyser.connect(audioCtx.destination);
+          let data = new Uint8Array(16384);
+
+          controlResolution.onchange = () => {
+            analyser.fftSize = 2 ** controlResolution.value;
+          };
+
+          const draw = () => {
+            const gap = controlGap.value;
+
+            // Clear the canvas
+            canvasCtx.fillStyle = "black";
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Get new FFT data
+            analyser.getByteFrequencyData(data);
+            let space = canvas.width / analyser.frequencyBinCount;
+            canvasCtx.lineWidth = space - gap;
+
+            data.forEach((value, i) => {
+              if (i > analyser.frequencyBinCount) return;
+
+              canvasCtx.strokeStyle = `hsl(${(value % 360) - 180}, 100%, 50%)`;
+
+              canvasCtx.beginPath();
+              const x = space * i;
+              canvasCtx.moveTo(x, canvas.height);
+              canvasCtx.lineTo(
+                x,
+                canvas.height - (canvas.height / 1.5) * (value / 255)
+              );
+              canvasCtx.stroke();
+            });
+
+            requestAnimationFrame(draw);
+          };
+
+          canvas.hidden = false;
+          requestAnimationFrame(draw);
+        };
+      };
+    </script>
+  </body>
+</html>
