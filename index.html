@@ -98,7 +98,7 @@
             canvasCtx.lineWidth = space - gap;
 
             data.forEach((value, i) => {
-              if (i > analyser.frequencyBinCount) return;
+              if (i >= analyser.frequencyBinCount) return;
 
               canvasCtx.strokeStyle = `hsl(${(value % 360) - 180}, 100%, 50%)`;
 
